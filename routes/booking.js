@@ -3,7 +3,7 @@ const router = express.Router();
 const bookingModel = require('../models/booking');
 const trainModel = require('../models/train');
 const { authenticateToken } = require('../middleware/authMiddleware');
-const pool = require('../config/database'); 
+const pool = require('../config/db'); 
 
 
 router.post('/:trainId', authenticateToken, async (req, res) => {
@@ -14,10 +14,16 @@ router.post('/:trainId', authenticateToken, async (req, res) => {
 
     try {
         connection = await pool.getConnection(); 
-        await connection.beginTransaction(); 
+        
 
         
-        const train = await trainModel.getTrainById(trainId);
+        await connection.execute('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+
+        await connection.beginTransaction(); 
+        
+        
+        const [trainRows] = await connection.execute('SELECT * FROM trains WHERE id = ? FOR UPDATE', [trainId]);
+        const train = trainRows[0];
 
         if (!train) {
             await connection.rollback();
@@ -51,12 +57,23 @@ router.post('/:trainId', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Booking error:', error);
         if (connection) {
-            await connection.rollback(); 
+            try{
+                await connection.rollback(); 
+            }
+            catch(rollbackError){
+                console.log("rollback error",rollbackError);
+            }
+            
         }
         res.status(500).json({ message: 'Booking failed', error: error.message });
     } finally {
         if (connection) {
-            connection.release(); 
+            try{
+                await connection.release();
+            }
+            catch(releaseError){
+                console.log('connection release error',releaseError);
+            }
         }
     }
 });
@@ -83,3 +100,4 @@ router.get('/:bookingId', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+

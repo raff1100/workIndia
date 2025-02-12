@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const pool = require('../config/db');
 
 async function createBooking(userId, trainId) {
     const [result] = await pool.execute('INSERT INTO bookings (user_id, train_id) VALUES (?, ?)', [userId, trainId]);
@@ -12,6 +12,5 @@ async function getBookingById(bookingId, userId) {
         'WHERE b.id = ? AND b.user_id = ?', [bookingId, userId]);
     return rows[0];
 }
-
 
 module.exports = { createBooking, getBookingById };
